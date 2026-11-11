@@ -353,6 +353,19 @@ public class NoWhitespaceAfterCheckTest extends AbstractModuleTestSupport {
     }
 
     @Test
+    public void testNoWhitespaceAfterSupplementaryIdentifier() throws Exception {
+        final String[] expected = {
+            "12:15: " + getCheckMessage(MSG_KEY, "ascii"),
+            "13:11: " + getCheckMessage(MSG_KEY, "𝒜"),
+            "15:12: " + getCheckMessage(MSG_KEY, "𝒞𝒜"),
+            "18:20: " + getCheckMessage(MSG_KEY, "local𝒜"),
+        };
+
+        verifyWithInlineConfigParser(
+                getPath("InputNoWhitespaceAfterSupplementaryIdentifier.java"), expected);
+    }
+
+    @Test
     public void testLiteralToken() throws Exception {
         final String[] expected = {
             "14:11: " + getCheckMessage(MSG_KEY, "catch"),

@@ -57,6 +57,7 @@ class UnusedPrivateFieldCheckTest extends AbstractModuleTestSupport {
         final int[] expected = {
             TokenTypes.IMPORT,
             TokenTypes.OBJBLOCK,
+            TokenTypes.COMPACT_COMPILATION_UNIT,
             TokenTypes.VARIABLE_DEF,
             TokenTypes.PARAMETER_DEF,
             TokenTypes.PARAMETERS,
@@ -82,6 +83,7 @@ class UnusedPrivateFieldCheckTest extends AbstractModuleTestSupport {
         final int[] expected = {
             TokenTypes.IMPORT,
             TokenTypes.OBJBLOCK,
+            TokenTypes.COMPACT_COMPILATION_UNIT,
             TokenTypes.VARIABLE_DEF,
             TokenTypes.PARAMETER_DEF,
             TokenTypes.PARAMETERS,
@@ -314,6 +316,18 @@ class UnusedPrivateFieldCheckTest extends AbstractModuleTestSupport {
         final String[] expected = CommonUtil.EMPTY_STRING_ARRAY;
         verifyWithInlineConfigParser(
                 getNonCompilablePath("compact/InputUnusedPrivateFieldAnnotation.java"),
+                expected);
+    }
+
+    @Test
+    public void testUnusedPrivateFieldCompactSourceFile() throws Exception {
+        final String[] expected = {
+            "10:13: " + getCheckMessage(MSG_PRIVATE_FIELD, "unused"),
+            "14:13: " + getCheckMessage(MSG_PRIVATE_FIELD, "shadowed"),
+            "26:17: " + getCheckMessage(MSG_PRIVATE_FIELD, "nestedUnused"),
+        };
+        verifyWithInlineConfigParser(
+                getNonCompilablePath("compact/InputUnusedPrivateFieldCompactSourceFile.java"),
                 expected);
     }
 

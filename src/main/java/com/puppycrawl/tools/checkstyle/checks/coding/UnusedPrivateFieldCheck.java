@@ -30,6 +30,8 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nullable;
+
 import com.puppycrawl.tools.checkstyle.FileStatefulCheck;
 import com.puppycrawl.tools.checkstyle.api.AbstractCheck;
 import com.puppycrawl.tools.checkstyle.api.DetailAST;
@@ -157,6 +159,7 @@ public class UnusedPrivateFieldCheck extends AbstractCheck {
         return new int[] {
             TokenTypes.IMPORT,
             TokenTypes.OBJBLOCK,
+            TokenTypes.COMPACT_COMPILATION_UNIT,
             TokenTypes.VARIABLE_DEF,
             TokenTypes.PARAMETER_DEF,
             TokenTypes.PARAMETERS,
@@ -199,12 +202,11 @@ public class UnusedPrivateFieldCheck extends AbstractCheck {
     @Override
     public void visitToken(DetailAST ast) {
         switch (ast.getType()) {
-            case TokenTypes.OBJBLOCK -> {
+            case TokenTypes.OBJBLOCK, TokenTypes.COMPACT_COMPILATION_UNIT -> {
                 privateFields.push(new HashMap<>());
                 scopeStackSnapshots.push(new ArrayDeque<>(scopeStack));
                 scopeStack.clear();
-                final DetailAST typeDef = ast.getParent();
-                final DetailAST nameIdent = typeDef.findFirstToken(TokenTypes.IDENT);
+                final DetailAST nameIdent = getTypeNameIdent(ast);
                 if (nameIdent == null) {
                     enclosingTypeNames.push("");
                 }
@@ -231,7 +233,7 @@ public class UnusedPrivateFieldCheck extends AbstractCheck {
     @Override
     public void leaveToken(DetailAST ast) {
         switch (ast.getType()) {
-            case TokenTypes.OBJBLOCK -> {
+            case TokenTypes.OBJBLOCK, TokenTypes.COMPACT_COMPILATION_UNIT -> {
                 final Map<String, DetailAST> classFields = privateFields.pop();
                 privateFieldsByType.put(enclosingTypeNames.peek(), classFields);
                 for (final Map.Entry<String, DetailAST> entry : classFields.entrySet()) {
@@ -313,7 +315,7 @@ public class UnusedPrivateFieldCheck extends AbstractCheck {
     private void handleVariableDef(DetailAST ast) {
         final DetailAST parent = ast.getParent();
 
-        if (parent.getType() == TokenTypes.OBJBLOCK) {
+        if (isFieldContainer(parent)) {
             final DetailAST modifiers = ast.findFirstToken(TokenTypes.MODIFIERS);
             final boolean isPrivateField = isPrivate(modifiers);
             final DetailAST ident = ast.findFirstToken(TokenTypes.IDENT);
@@ -341,9 +343,37 @@ public class UnusedPrivateFieldCheck extends AbstractCheck {
      */
     private boolean hasIgnoredAnnotation(final DetailAST variableDef) {
         boolean result = isAnnotatedWithIgnoredAnnotation(variableDef);
-        if (!result) {
-            final DetailAST classDef = variableDef.getParent().getParent();
-            result = isAnnotatedWithIgnoredAnnotation(classDef);
+        final DetailAST container = variableDef.getParent();
+        if (!result && container.getType() == TokenTypes.OBJBLOCK) {
+            result = isAnnotatedWithIgnoredAnnotation(container.getParent());
+        }
+        return result;
+    }
+
+    /**
+     * Checks whether a node holds field declarations: the body of a type, or a compact
+     * compilation unit, whose members are its direct children.
+     *
+     * @param ast the node to check.
+     * @return true if fields can be declared directly in ast.
+     */
+    private static boolean isFieldContainer(DetailAST ast) {
+        return ast.getType() == TokenTypes.OBJBLOCK
+                || ast.getType() == TokenTypes.COMPACT_COMPILATION_UNIT;
+    }
+
+    /**
+     * Gets the name of the type that a field container belongs to.
+     *
+     * @param container the type body, or a compact compilation unit.
+     * @return the IDENT of the type name, or null if the type has no name, as for
+     *     an anonymous class or the implicit class of a compact compilation unit.
+     */
+    @Nullable
+    private static DetailAST getTypeNameIdent(DetailAST container) {
+        DetailAST result = null;
+        if (container.getType() == TokenTypes.OBJBLOCK) {
+            result = container.getParent().findFirstToken(TokenTypes.IDENT);
         }
         return result;
     }
